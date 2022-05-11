@@ -8,8 +8,8 @@ import functools
 import multiprocessing
 
 from datetime import datetime
-# from time import gmtime, strftime, sleep
-#
+from time import gmtime, strftime, sleep
+# #
 import pandas as pd
 import argparse
 import subprocess
@@ -23,7 +23,7 @@ import glob
 from pathlib import Path
 import time
 import boto3
-
+#
 subprocess.check_call([sys.executable, "-m", "conda", "install", "-c", "pytorch", "pytorch==1.6.0", "-y"])
 
 subprocess.check_call([sys.executable, "-m", "conda", "install", "-c", "conda-forge", "transformers==3.5.1", "-y"])
@@ -39,9 +39,9 @@ from sagemaker.feature_store.feature_definition import (
     FeatureTypeEnum,
 )
 
-#####################################
-### SETUP ENVIRONMENTAL VARIABLES ###
-#####################################
+####################################
+## SETUP ENVIRONMENTAL VARIABLES ###
+####################################
 
 region = os.environ['AWS_DEFAULT_REGION']
 sts = boto3.Session(region_name=region).client(service_name='sts', region_name=region)
@@ -263,6 +263,7 @@ def parse_args():
 ############################
 ### PROCESSING FUNCTIONS ###
 ############################
+
 def _preprocess_file(file,
                      balance_dataset,
                      max_seq_length,
@@ -332,7 +333,6 @@ def _preprocess_file(file,
 
     # adding timestamp as date column
     timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-    print(timestamp)
 
     df['date'] = timestamp
     print('Shape of df with date: {}'.format(df.shape))
@@ -384,7 +384,7 @@ def _preprocess_file(file,
     df_validation.head()
     df_test.head()
 
-    column_names = ['article_id', 'class', 'date' 'label_id', 'input_ids', 'article_body']
+    column_names = ['article_id', 'class', 'date', 'label_id', 'input_ids', 'article_body']
 
     df_train_records = df_train[column_names]
     df_train_records['split_type'] = 'train'
@@ -424,3 +424,69 @@ def _preprocess_file(file,
         print('Offline store status: {}'.format(offline_store_status))
         sleep(15)
     print('...features ingested!')
+
+
+def process(args):
+    print('Current host: {}'.format(args.current_host))
+
+    feature_group = create_or_load_feature_group(
+        prefix=args.feature_store_offline_prefix,
+        feature_group_name=args.feature_group_name)
+
+    feature_group.describe()
+
+    preprocessed_data = '{}/fake_propaganda'.format(args.output_data)
+    train_data = '{}/fake_propaganda/train'.format(args.output_data)
+    validation_data = '{}/fake_propaganda/validation'.format(args.output_data)
+    test_data = '{}/fake_propaganda/test'.format(args.output_data)
+
+    # partial functions allow to derive a function with some parameters to a function with fewer parameters
+    # and fixed values set for the more limited function
+    # here 'preprocess_file' will be more limited function than '_preprocess_file' with fixed values for some parameters
+    preprocess_file = functools.partial(_preprocess_file,
+                                        balance_dataset=args.balance_dataset,
+                                        max_seq_length=args.max_seq_length,
+                                        prefix=args.feature_store_offline_prefix,
+                                        feature_group_name=args.feature_group_name)
+
+    input_files = glob.glob('{}/*.csv'.format(args.input_data))
+
+    num_cpus = multiprocessing.cpu_count()
+    print('num_cpus {}'.format(num_cpus))
+
+    p = multiprocessing.Pool(num_cpus)
+    p.map(preprocess_file, input_files)
+
+    print('Listing contents of {}'.format(preprocessed_data))
+    dirs_output = os.listdir(preprocessed_data)
+    for file in dirs_output:
+        print(file)
+
+    print('Listing contents of {}'.format(train_data))
+    dirs_output = os.listdir(train_data)
+    for file in dirs_output:
+        print(file)
+
+    print('Listing contents of {}'.format(validation_data))
+    dirs_output = os.listdir(validation_data)
+    for file in dirs_output:
+        print(file)
+
+    print('Listing contents of {}'.format(test_data))
+    dirs_output = os.listdir(test_data)
+    for file in dirs_output:
+        print(file)
+
+    print('Complete')
+
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    print('Loaded arguments:')
+    print(args)
+
+    print('Environment variables:')
+    print(os.environ)
+
+    process(args)
