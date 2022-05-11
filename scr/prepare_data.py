@@ -24,9 +24,12 @@ from pathlib import Path
 import time
 import boto3
 
-subprocess.check_call([sys.executable, "-m", "conda", "install", "-c", "pytorch", "pytorch==1.6.0", "-y"])
+subprocess.check_call(
+    [sys.executable, "-m", "conda", "install", "-c", "pytorch", "pytorch==1.6.0",
+     "-y"])
 
-subprocess.check_call([sys.executable, "-m", "conda", "install", "-c", "conda-forge", "transformers==3.5.1", "-y"])
+subprocess.check_call([sys.executable, "-m", "conda", "install", "-c", "conda-forge",
+                       "transformers==3.5.1", "-y"])
 from transformers import RobertaTokenizer
 
 subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'sagemaker==2.35.0'])
@@ -46,8 +49,10 @@ from sagemaker.feature_store.feature_definition import (
 region = os.environ['AWS_DEFAULT_REGION']
 sts = boto3.Session(region_name=region).client(service_name='sts', region_name=region)
 iam = boto3.Session(region_name=region).client(service_name='iam', region_name=region)
-featurestore_runtime = boto3.Session(region_name=region).client(service_name='sagemaker-featurestore-runtime', region_name=region)
-sm = boto3.Session(region_name=region).client(service_name='sagemaker', region_name=region)
+featurestore_runtime = boto3.Session(region_name=region).client(
+    service_name='sagemaker-featurestore-runtime', region_name=region)
+sm = boto3.Session(region_name=region).client(service_name='sagemaker',
+                                              region_name=region)
 
 caller_identity = sts.get_caller_identity()
 assumed_role_arn = caller_identity['Arn']
@@ -57,8 +62,8 @@ role = get_role_response['Role']['Arn']
 bucket = sagemaker.Session().default_bucket()
 
 sagemaker_session = sagemaker.Session(boto_session=boto3.Session(region_name=region),
-                            sagemaker_client=sm,
-                            sagemaker_featurestore_runtime_client=featurestore_runtime)
+                                      sagemaker_client=sm,
+                                      sagemaker_featurestore_runtime_client=featurestore_runtime)
 
 # list of classes: -1 - fake; 0 - propaganda; 1 - true
 classes = [-1, 0, 1]
@@ -88,26 +93,27 @@ def cast_object_to_string(data_frame):
     return data_frame
 
 
-def wait_for_feature_group_creation_complete(feature_group):
-    try:
-        status = feature_group.describe().get("FeatureGroupStatus")
-        print('Feature Group status: {}'.format(status))
-        while status == "Creating":
-            print("Waiting for Feature Group Creation")
-            time.sleep(5)
-            status = feature_group.describe().get("FeatureGroupStatus")
-            print('Feature Group status: {}'.format(status))
-        if status != "Created":
-            print('Feature Group status: {}'.format(status))
-            raise RuntimeError(f"Failed to create feature group {feature_group.name}")
-        print(f"FeatureGroup {feature_group.name} successfully created.")
-    except:
-        print('No feature group created yet.')
+# def wait_for_feature_group_creation_complete(feature_group):
+#     try:
+#         status = feature_group.describe().get("FeatureGroupStatus")
+#         print('Feature Group status: {}'.format(status))
+#         while status == "Creating":
+#             print("Waiting for Feature Group Creation")
+#             time.sleep(5)
+#             status = feature_group.describe().get("FeatureGroupStatus")
+#             print('Feature Group status: {}'.format(status))
+#         if status != "Created":
+#             print('Feature Group status: {}'.format(status))
+#             raise RuntimeError(f"Failed to create feature group {feature_group.name}")
+#         print(f"FeatureGroup {feature_group.name} successfully created.")
+#     except:
+#         print('No feature group created yet.')
 
 
 def list_arg(raw_value):
     """argparse type for a list of strings"""
     return str(raw_value).split(',')
+
 
 def to_class(label):
     if label == 'fake':
@@ -117,71 +123,66 @@ def to_class(label):
     if label == 'right':
         return 1
 
+
 ###########################################
 ### CREATING AND LOADING A FEATURE GROUP###
 ###########################################
 
-def create_or_load_feature_group(prefix, feature_group_name):
-    # Feature Definitions for the records
-    feature_definitions = [
-        FeatureDefinition(feature_name='article_id',
-                          feature_type=FeatureTypeEnum.STRING),
-        FeatureDefinition(feature_name='date', feature_type=FeatureTypeEnum.STRING),
-        FeatureDefinition(feature_name='class',
-                          feature_type=FeatureTypeEnum.STRING),
-        FeatureDefinition(feature_name='label_id',
-                          feature_type=FeatureTypeEnum.STRING),
-        FeatureDefinition(feature_name='input_ids',
-                          feature_type=FeatureTypeEnum.STRING),
-        FeatureDefinition(feature_name='article_body',
-                          feature_type=FeatureTypeEnum.STRING),
-        FeatureDefinition(feature_name='split_type',
-                          feature_type=FeatureTypeEnum.STRING)
-    ]
+# def create_or_load_feature_group(prefix, feature_group_name):
+#     # Feature Definitions for the records
+#     feature_definitions = [
+#         FeatureDefinition(feature_name='article_id', feature_type=FeatureTypeEnum.STRING),
+#         FeatureDefinition(feature_name='date', feature_type=FeatureTypeEnum.STRING),
+#         FeatureDefinition(feature_name='class', feature_type=FeatureTypeEnum.STRING),
+#         FeatureDefinition(feature_name='label_id', feature_type=FeatureTypeEnum.STRING),
+#         FeatureDefinition(feature_name='input_ids', feature_type=FeatureTypeEnum.STRING),
+#         FeatureDefinition(feature_name='article_body', feature_type=FeatureTypeEnum.STRING),
+#         FeatureDefinition(feature_name='split_type', feature_type=FeatureTypeEnum.STRING)
+#     ]
 
-    # setup the Feature Group
-    feature_group = FeatureGroup(
-        name=feature_group_name,
-        feature_definitions=feature_definitions,
-        sagemaker_session=sagemaker_session
-    )
+#     # setup the Feature Group
+#     feature_group = FeatureGroup(
+#         name=feature_group_name,
+#         feature_definitions=feature_definitions,
+#         sagemaker_session=sagemaker_session
+#     )
 
-    print('Feature Group: {}'.format(feature_group))
+#     print('Feature Group: {}'.format(feature_group))
 
-    try:
-        print(
-            'Waiting for existing Feature Group to become available if it is being created by another instance in our cluster...')
-        wait_for_feature_group_creation_complete(feature_group)
-    except Exception as e:
-        print('Before CREATE FG wait exeption: {}'.format(e))
+#     try:
+#         print(
+#             'Waiting for existing Feature Group to become available if it is being created by another instance in our cluster...')
+#         wait_for_feature_group_creation_complete(feature_group)
+#     except Exception as e:
+#         print('Before CREATE FG wait exeption: {}'.format(e))
 
-    try:
-        record_identifier_feature_name = "article_id"
-        event_time_feature_name = "date"
+#     try:
+#         record_identifier_feature_name = "article_id"
+#         event_time_feature_name = "date"
 
-        print('Creating Feature Group with role {}...'.format(role))
+#         print('Creating Feature Group with role {}...'.format(role))
 
-        # create Feature Group
-        feature_group.create(
-            s3_uri=f"s3://{bucket}/{prefix}",
-            record_identifier_name=record_identifier_feature_name,
-            event_time_feature_name=event_time_feature_name,
-            role_arn=role,
-            enable_online_store=False
-        )
-        print('Creating Feature Group. Completed.')
+#         # create Feature Group
+#         feature_group.create(
+#             s3_uri=f"s3://{bucket}/{prefix}",
+#             record_identifier_name=record_identifier_feature_name,
+#             event_time_feature_name=event_time_feature_name,
+#             role_arn=role,
+#             enable_online_store=False
+#         )
+#         print('Creating Feature Group. Completed.')
 
-        print('Waiting for new Feature Group to become available...')
-        wait_for_feature_group_creation_complete(feature_group)
-        print('Feature Group available.')
+#         print('Waiting for new Feature Group to become available...')
+#         wait_for_feature_group_creation_complete(feature_group)
+#         print('Feature Group available.')
 
-        # the information about the Feature Group
-        feature_group.describe()
+#         # the information about the Feature Group
+#         feature_group.describe()
 
-    except Exception as e:
-        print('Exception: {}'.format(e))
+#     except Exception as e:
+#         print('Exception: {}'.format(e))
 
-    return feature_group
+#     return feature_group
 
 ############################
 ### ARTICLE TOKENIZATION ###
@@ -203,6 +204,7 @@ def convert_to_bert_input_ids(review, max_seq_length):
     )
 
     return encode_plus['input_ids'].flatten().tolist()
+
 
 ########################
 ### PARSE INPUT ARGS ###
@@ -260,6 +262,7 @@ def parse_args():
 
     return parser.parse_args()
 
+
 ############################
 ### PROCESSING FUNCTIONS ###
 ############################
@@ -279,17 +282,16 @@ def _preprocess_file(file,
     # the Feature Group that was set in the main notebook cannot be passed here - it will be used later in the notebook for other purposes
     # you need to create a Feature Group with the same Feature Definitions within the processing job
 
-
-    feature_group = create_or_load_feature_group(prefix, feature_group_name)
+    #     feature_group = create_or_load_feature_group(prefix, feature_group_name)
 
     filename_without_extension = Path(Path(file).stem).stem
 
     # read file
-    df = pd.read_csv(file,
-                     )
+    df = pd.read_csv(file)
 
     df.isna().values.any()
     df = df.dropna()
+
     df = df.reset_index(drop=True)
     print('Shape of dataframe {}'.format(df.shape))
 
@@ -384,7 +386,8 @@ def _preprocess_file(file,
     df_validation.head()
     df_test.head()
 
-    column_names = ['article_id', 'class', 'date', 'label_id', 'input_ids', 'article_body']
+    column_names = ['article_id', 'class', 'date', 'label_id', 'input_ids',
+                    'article_body']
 
     df_train_records = df_train[column_names]
     df_train_records['split_type'] = 'train'
@@ -403,37 +406,41 @@ def _preprocess_file(file,
     df_fs_validation_records = cast_object_to_string(df_validation_records)
     df_fs_test_records = cast_object_to_string(df_test_records)
 
-    print('Ingesting features...')
-    feature_group.ingest(
-        data_frame=df_fs_train_records, max_workers=3, wait=True
-    )
-    feature_group.ingest(
-        data_frame=df_fs_validation_records, max_workers=3, wait=True
-    )
-    feature_group.ingest(
-        data_frame=df_fs_test_records, max_workers=3, wait=True
-    )
+    print(df_fs_train_records.head())
 
-    offline_store_status = None
-    while offline_store_status != 'Active':
-        try:
-            offline_store_status = feature_group.describe()['OfflineStoreStatus'][
-                'Status']
-        except:
-            pass
-        print('Offline store status: {}'.format(offline_store_status))
-        sleep(15)
-    print('...features ingested!')
+    print('Ingesting features...')
+
+
+#     feature_group.ingest(
+#         data_frame=df_fs_train_records, max_workers=3, wait=True
+#     )
+#     feature_group.ingest(
+#         data_frame=df_fs_validation_records, max_workers=3, wait=True
+#     )
+#     feature_group.ingest(
+#         data_frame=df_fs_test_records, max_workers=3, wait=True
+#     )
+
+#     offline_store_status = None
+#     while offline_store_status != 'Active':
+#         try:
+#             offline_store_status = feature_group.describe()['OfflineStoreStatus'][
+#                 'Status']
+#         except:
+#             pass
+#         print('Offline store status: {}'.format(offline_store_status))
+#         sleep(15)
+#     print('...features ingested!')
 
 
 def process(args):
     print('Current host: {}'.format(args.current_host))
 
-    feature_group = create_or_load_feature_group(
-        prefix=args.feature_store_offline_prefix,
-        feature_group_name=args.feature_group_name)
+    #     feature_group = create_or_load_feature_group(
+    #         prefix=args.feature_store_offline_prefix,
+    #         feature_group_name=args.feature_group_name)
 
-    feature_group.describe()
+    #     feature_group.describe()
 
     preprocessed_data = '{}/fake_propaganda'.format(args.output_data)
     train_data = '{}/fake_propaganda/train'.format(args.output_data)
@@ -478,7 +485,6 @@ def process(args):
         print(file)
 
     print('Complete')
-
 
 
 if __name__ == "__main__":
