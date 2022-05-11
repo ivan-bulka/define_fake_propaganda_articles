@@ -4,61 +4,61 @@
 
 from sklearn.model_selection import train_test_split
 from sklearn.utils import resample
-import functools
-import multiprocessing
+# import functools
+# import multiprocessing
 
 from datetime import datetime
 from time import gmtime, strftime, sleep
 # #
 import pandas as pd
-import argparse
-import subprocess
-import sys
-import os
-import re
-import collections
-import json
-import csv
-import glob
-from pathlib import Path
+# import argparse
+# import subprocess
+# import sys
+# import os
+# import re
+# import collections
+# import json
+# import csv
+# import glob
+# from pathlib import Path
 import time
-import boto3
+# import boto3
 #
-subprocess.check_call([sys.executable, "-m", "conda", "install", "-c", "pytorch", "pytorch==1.6.0", "-y"])
-
-subprocess.check_call([sys.executable, "-m", "conda", "install", "-c", "conda-forge", "transformers==3.5.1", "-y"])
+# subprocess.check_call([sys.executable, "-m", "conda", "install", "-c", "pytorch", "pytorch==1.6.0", "-y"])
+#
+# subprocess.check_call([sys.executable, "-m", "conda", "install", "-c", "conda-forge", "transformers==3.5.1", "-y"])
 from transformers import RobertaTokenizer
-
-subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'sagemaker==2.35.0'])
-import sagemaker
-
-from sagemaker.session import Session
-from sagemaker.feature_store.feature_group import FeatureGroup
-from sagemaker.feature_store.feature_definition import (
-    FeatureDefinition,
-    FeatureTypeEnum,
-)
+#
+# subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'sagemaker==2.35.0'])
+# import sagemaker
+#
+# from sagemaker.session import Session
+# from sagemaker.feature_store.feature_group import FeatureGroup
+# from sagemaker.feature_store.feature_definition import (
+#     FeatureDefinition,
+#     FeatureTypeEnum,
+# )
 
 ####################################
 ## SETUP ENVIRONMENTAL VARIABLES ###
 ####################################
 
-region = os.environ['AWS_DEFAULT_REGION']
-sts = boto3.Session(region_name=region).client(service_name='sts', region_name=region)
-iam = boto3.Session(region_name=region).client(service_name='iam', region_name=region)
-featurestore_runtime = boto3.Session(region_name=region).client(service_name='sagemaker-featurestore-runtime', region_name=region)
-sm = boto3.Session(region_name=region).client(service_name='sagemaker', region_name=region)
-
-caller_identity = sts.get_caller_identity()
-assumed_role_arn = caller_identity['Arn']
-assumed_role_name = assumed_role_arn.split('/')[-2]
-get_role_response = iam.get_role(RoleName=assumed_role_name)
-role = get_role_response['Role']['Arn']
-bucket = sagemaker.Session().default_bucket()
-
-sagemaker_session = sagemaker.Session(boto_session=boto3.Session(region_name=region),
-                            sagemaker_client=sm,
-                            sagemaker_featurestore_runtime_client=featurestore_runtime)
+# region = os.environ['AWS_DEFAULT_REGION']
+# sts = boto3.Session(region_name=region).client(service_name='sts', region_name=region)
+# iam = boto3.Session(region_name=region).client(service_name='iam', region_name=region)
+# featurestore_runtime = boto3.Session(region_name=region).client(service_name='sagemaker-featurestore-runtime', region_name=region)
+# sm = boto3.Session(region_name=region).client(service_name='sagemaker', region_name=region)
+#
+# caller_identity = sts.get_caller_identity()
+# assumed_role_arn = caller_identity['Arn']
+# assumed_role_name = assumed_role_arn.split('/')[-2]
+# get_role_response = iam.get_role(RoleName=assumed_role_name)
+# role = get_role_response['Role']['Arn']
+# bucket = sagemaker.Session().default_bucket()
+#
+# sagemaker_session = sagemaker.Session(boto_session=boto3.Session(region_name=region),
+#                             sagemaker_client=sm,
+#                             sagemaker_featurestore_runtime_client=featurestore_runtime)
 
 # list of classes: -1 - fake; 0 - propaganda; 1 - true
 classes = [-1, 0, 1]
@@ -121,67 +121,67 @@ def to_class(label):
 ### CREATING AND LOADING A FEATURE GROUP###
 ###########################################
 
-def create_or_load_feature_group(prefix, feature_group_name):
-    # Feature Definitions for the records
-    feature_definitions = [
-        FeatureDefinition(feature_name='article_id',
-                          feature_type=FeatureTypeEnum.STRING),
-        FeatureDefinition(feature_name='date', feature_type=FeatureTypeEnum.STRING),
-        FeatureDefinition(feature_name='class',
-                          feature_type=FeatureTypeEnum.STRING),
-        FeatureDefinition(feature_name='label_id',
-                          feature_type=FeatureTypeEnum.STRING),
-        FeatureDefinition(feature_name='input_ids',
-                          feature_type=FeatureTypeEnum.STRING),
-        FeatureDefinition(feature_name='article_body',
-                          feature_type=FeatureTypeEnum.STRING),
-        FeatureDefinition(feature_name='split_type',
-                          feature_type=FeatureTypeEnum.STRING)
-    ]
-
-    # setup the Feature Group
-    feature_group = FeatureGroup(
-        name=feature_group_name,
-        feature_definitions=feature_definitions,
-        sagemaker_session=sagemaker_session
-    )
-
-    print('Feature Group: {}'.format(feature_group))
-
-    try:
-        print(
-            'Waiting for existing Feature Group to become available if it is being created by another instance in our cluster...')
-        wait_for_feature_group_creation_complete(feature_group)
-    except Exception as e:
-        print('Before CREATE FG wait exeption: {}'.format(e))
-
-    try:
-        record_identifier_feature_name = "article_id"
-        event_time_feature_name = "date"
-
-        print('Creating Feature Group with role {}...'.format(role))
-
-        # create Feature Group
-        feature_group.create(
-            s3_uri=f"s3://{bucket}/{prefix}",
-            record_identifier_name=record_identifier_feature_name,
-            event_time_feature_name=event_time_feature_name,
-            role_arn=role,
-            enable_online_store=False
-        )
-        print('Creating Feature Group. Completed.')
-
-        print('Waiting for new Feature Group to become available...')
-        wait_for_feature_group_creation_complete(feature_group)
-        print('Feature Group available.')
-
-        # the information about the Feature Group
-        feature_group.describe()
-
-    except Exception as e:
-        print('Exception: {}'.format(e))
-
-    return feature_group
+# def create_or_load_feature_group(prefix, feature_group_name):
+#     # Feature Definitions for the records
+#     feature_definitions = [
+#         FeatureDefinition(feature_name='article_id',
+#                           feature_type=FeatureTypeEnum.STRING),
+#         FeatureDefinition(feature_name='date', feature_type=FeatureTypeEnum.STRING),
+#         FeatureDefinition(feature_name='class',
+#                           feature_type=FeatureTypeEnum.STRING),
+#         FeatureDefinition(feature_name='label_id',
+#                           feature_type=FeatureTypeEnum.STRING),
+#         FeatureDefinition(feature_name='input_ids',
+#                           feature_type=FeatureTypeEnum.STRING),
+#         FeatureDefinition(feature_name='article_body',
+#                           feature_type=FeatureTypeEnum.STRING),
+#         FeatureDefinition(feature_name='split_type',
+#                           feature_type=FeatureTypeEnum.STRING)
+#     ]
+#
+#     # setup the Feature Group
+#     feature_group = FeatureGroup(
+#         name=feature_group_name,
+#         feature_definitions=feature_definitions,
+#         sagemaker_session=sagemaker_session
+#     )
+#
+#     print('Feature Group: {}'.format(feature_group))
+#
+#     try:
+#         print(
+#             'Waiting for existing Feature Group to become available if it is being created by another instance in our cluster...')
+#         wait_for_feature_group_creation_complete(feature_group)
+#     except Exception as e:
+#         print('Before CREATE FG wait exeption: {}'.format(e))
+#
+#     try:
+#         record_identifier_feature_name = "article_id"
+#         event_time_feature_name = "date"
+#
+#         print('Creating Feature Group with role {}...'.format(role))
+#
+#         # create Feature Group
+#         feature_group.create(
+#             s3_uri=f"s3://{bucket}/{prefix}",
+#             record_identifier_name=record_identifier_feature_name,
+#             event_time_feature_name=event_time_feature_name,
+#             role_arn=role,
+#             enable_online_store=False
+#         )
+#         print('Creating Feature Group. Completed.')
+#
+#         print('Waiting for new Feature Group to become available...')
+#         wait_for_feature_group_creation_complete(feature_group)
+#         print('Feature Group available.')
+#
+#         # the information about the Feature Group
+#         feature_group.describe()
+#
+#     except Exception as e:
+#         print('Exception: {}'.format(e))
+#
+#     return feature_group
 
 ############################
 ### ARTICLE TOKENIZATION ###
@@ -208,57 +208,57 @@ def convert_to_bert_input_ids(review, max_seq_length):
 ### PARSE INPUT ARGS ###
 ########################
 
-def parse_args():
-    # Unlike SageMaker training jobs (which have `SM_HOSTS` and `SM_CURRENT_HOST` env vars), processing jobs to need to parse the resource config file directly
-    resconfig = {}
-    try:
-        with open('/opt/ml/config/resourceconfig.json', 'r') as cfgfile:
-            resconfig = json.load(cfgfile)
-    except FileNotFoundError:
-        print(
-            '/opt/ml/config/resourceconfig.json not found. current_host is unknown.')
-        pass  # Ignore
+# def parse_args():
+#     # Unlike SageMaker training jobs (which have `SM_HOSTS` and `SM_CURRENT_HOST` env vars), processing jobs to need to parse the resource config file directly
+#     resconfig = {}
+#     try:
+#         with open('/opt/ml/config/resourceconfig.json', 'r') as cfgfile:
+#             resconfig = json.load(cfgfile)
+#     except FileNotFoundError:
+#         print(
+#             '/opt/ml/config/resourceconfig.json not found. current_host is unknown.')
+#         pass  # Ignore
+#
+#     # Local testing with CLI args
+#     parser = argparse.ArgumentParser(description='Process')
+#
+#     parser.add_argument('--hosts', type=list_arg,
+#                         default=resconfig.get('hosts', ['unknown']),
+#                         help='Comma-separated list of host names running the job'
+#                         )
+#     parser.add_argument('--current-host', type=str,
+#                         default=resconfig.get('current_host', 'unknown'),
+#                         help='Name of this host running the job'
+#                         )
+#     parser.add_argument('--input-data', type=str,
+#                         default='/opt/ml/processing/input/data',
+#                         )
+#     parser.add_argument('--output-data', type=str,
+#                         default='/opt/ml/processing/output',
+#                         )
+#     parser.add_argument('--train-split-percentage', type=float,
+#                         default=0.90,
+#                         )
+#     parser.add_argument('--validation-split-percentage', type=float,
+#                         default=0.05,
+#                         )
+#     parser.add_argument('--test-split-percentage', type=float,
+#                         default=0.05,
+#                         )
+#     parser.add_argument('--balance-dataset', type=eval,
+#                         default=True
+#                         )
+#     parser.add_argument('--max-seq-length', type=int,
+#                         default=128
+#                         )
+#     parser.add_argument('--feature-store-offline-prefix', type=str,
+#                         default=None,
+#                         )
+#     parser.add_argument('--feature-group-name', type=str,
+#                         default=None,
+#                         )
 
-    # Local testing with CLI args
-    parser = argparse.ArgumentParser(description='Process')
-
-    parser.add_argument('--hosts', type=list_arg,
-                        default=resconfig.get('hosts', ['unknown']),
-                        help='Comma-separated list of host names running the job'
-                        )
-    parser.add_argument('--current-host', type=str,
-                        default=resconfig.get('current_host', 'unknown'),
-                        help='Name of this host running the job'
-                        )
-    parser.add_argument('--input-data', type=str,
-                        default='/opt/ml/processing/input/data',
-                        )
-    parser.add_argument('--output-data', type=str,
-                        default='/opt/ml/processing/output',
-                        )
-    parser.add_argument('--train-split-percentage', type=float,
-                        default=0.90,
-                        )
-    parser.add_argument('--validation-split-percentage', type=float,
-                        default=0.05,
-                        )
-    parser.add_argument('--test-split-percentage', type=float,
-                        default=0.05,
-                        )
-    parser.add_argument('--balance-dataset', type=eval,
-                        default=True
-                        )
-    parser.add_argument('--max-seq-length', type=int,
-                        default=128
-                        )
-    parser.add_argument('--feature-store-offline-prefix', type=str,
-                        default=None,
-                        )
-    parser.add_argument('--feature-group-name', type=str,
-                        default=None,
-                        )
-
-    return parser.parse_args()
+    # return parser.parse_args()
 
 ############################
 ### PROCESSING FUNCTIONS ###
@@ -280,9 +280,9 @@ def _preprocess_file(file,
     # you need to create a Feature Group with the same Feature Definitions within the processing job
 
 
-    feature_group = create_or_load_feature_group(prefix, feature_group_name)
-
-    filename_without_extension = Path(Path(file).stem).stem
+    # feature_group = create_or_load_feature_group(prefix, feature_group_name)
+    #
+    # filename_without_extension = Path(Path(file).stem).stem
 
     # read file
     df = pd.read_csv(file,
@@ -294,11 +294,11 @@ def _preprocess_file(file,
     print('Shape of dataframe {}'.format(df.shape))
 
     # convert star rating into class
-    df['class'] = df['label'].apply(to_class)
+    df['class'] = df['label'].apply(lambda label: to_class(label=label))
     print('Shape of dataframe with class {}'.format(df.shape))
 
     # convert class (-1, 0, 1) into label_id (0, 1, 2)
-    df['label_id'] = df['class'].map(classes_map)
+    df['label_id'] = df['class'].apply(lambda cl: classes_map[cl])
     print('df[label_id] after using classes_map: {}'.format(df['label_id']))
 
     df['input_ids'] = df['text'].apply(
