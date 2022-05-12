@@ -14,7 +14,7 @@ All scripts are stored in the `/scr` directory.
 `prepare_data.py` - data preparation scripts that clean data, split on train,  
 validation, and test, and optionally store data to AWS FeatureStore
 
-`train.py` - training script for train BERT model. By default, are used 'roberta-base' 
-model from huggingface
+`train.py` - training script for train BERT model. By default, are used `roberta-base` 
+model from huggingface. Any model can be used instead
 
 `inference.py` - inference script
