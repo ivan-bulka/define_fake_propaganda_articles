@@ -27,7 +27,6 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import RobertaModel, RobertaConfig
 from transformers import RobertaForSequenceClassification
 from transformers import AdamW, get_linear_schedule_with_warmup
-from scr.model import PRE_TRAINED_MODEL_NAME
 
 ########################
 ### PARSE INPUT ARGS ###
@@ -148,7 +147,7 @@ def parse_args():
 # https://github.com/aws/sagemaker-pytorch-inference-toolkit/blob/6936c08581e26ff3bac26824b1e4946ec68ffc85/src/sagemaker_pytorch_serving_container/torchserve.py#L45
 MODEL_NAME = 'model.pth'
 # Hugging face list of models: https://huggingface.co/models
-# PRE_TRAINED_MODEL_NAME = 'roberta-base'
+PRE_TRAINED_MODEL_NAME = 'roberta-base'
 
 def create_list_input_files(path):
     input_files = glob.glob('{}/*.tsv'.format(path))

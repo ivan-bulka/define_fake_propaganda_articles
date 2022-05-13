@@ -8,7 +8,6 @@ import logging
 import torch
 from torch import nn
 from transformers import RobertaModel, RobertaTokenizer, RobertaForSequenceClassification, RobertaConfig
-from scr.model import PRE_TRAINED_MODEL_NAME
 
 ####################################
 ## SETUP ENVIRONMENTAL VARIABLES ###
@@ -18,7 +17,7 @@ from scr.model import PRE_TRAINED_MODEL_NAME
 # https://github.com/aws/sagemaker-pytorch-inference-toolkit/blob/6936c08581e26ff3bac26824b1e4946ec68ffc85/src/sagemaker_pytorch_serving_container/torchserve.py#L45
 MODEL_NAME = 'model.pth'
 # Hugging face list of models: https://huggingface.co/models
-# PRE_TRAINED_MODEL_NAME = 'roberta-base'
+PRE_TRAINED_MODEL_NAME = 'roberta-base'
 MAX_SEQ_LEN = 128
 
 classes = [-1, 0, 1]

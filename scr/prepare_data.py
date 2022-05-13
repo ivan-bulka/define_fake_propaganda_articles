@@ -35,8 +35,6 @@ from transformers import RobertaTokenizer
 subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'sagemaker==2.35.0'])
 import sagemaker
 
-from scr.model import PRE_TRAINED_MODEL_NAME
-
 from sagemaker.session import Session
 from sagemaker.feature_store.feature_group import FeatureGroup
 from sagemaker.feature_store.feature_definition import (
@@ -78,7 +76,7 @@ classes_map = {
 }
 
 # tokenization model
-# PRE_TRAINED_MODEL_NAME = 'roberta-base'
+PRE_TRAINED_MODEL_NAME = 'roberta-base'
 
 # create the tokenizer to use based on pre trained model
 tokenizer = RobertaTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
