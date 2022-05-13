@@ -1,0 +1,1 @@
+PRE_TRAINED_MODEL_NAME = 'roberta-base'

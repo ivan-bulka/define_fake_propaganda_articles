@@ -33,6 +33,7 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.utils import resample
+from scr.model import PRE_TRAINED_MODEL_NAME
 
 
 #############################################################
@@ -41,7 +42,7 @@ from sklearn.utils import resample
 
 MODEL_NAME = 'pytorch_model.bin'
 
-PRE_TRAINED_MODEL_NAME = 'roberta-base'
+# PRE_TRAINED_MODEL_NAME = 'roberta-base'
 
 classes = [-1, 0, 1]
 
