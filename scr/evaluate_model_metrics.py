@@ -33,7 +33,7 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.utils import resample
-from define_fake_propaganda_articles.scr.model import PRE_TRAINED_MODEL_NAME
+from scr.model import PRE_TRAINED_MODEL_NAME
 
 
 #############################################################

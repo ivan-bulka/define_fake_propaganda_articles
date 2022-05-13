@@ -8,7 +8,7 @@ import logging
 import torch
 from torch import nn
 from transformers import RobertaModel, RobertaTokenizer, RobertaForSequenceClassification, RobertaConfig
-from define_fake_propaganda_articles.scr.model import PRE_TRAINED_MODEL_NAME
+from scr.model import PRE_TRAINED_MODEL_NAME
 
 ####################################
 ## SETUP ENVIRONMENTAL VARIABLES ###

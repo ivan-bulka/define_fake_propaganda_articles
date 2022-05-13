@@ -35,7 +35,7 @@ from transformers import RobertaTokenizer
 subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'sagemaker==2.35.0'])
 import sagemaker
 
-from define_fake_propaganda_articles.scr.model import PRE_TRAINED_MODEL_NAME
+from scr.model import PRE_TRAINED_MODEL_NAME
 
 from sagemaker.session import Session
 from sagemaker.feature_store.feature_group import FeatureGroup

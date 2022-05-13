@@ -27,7 +27,7 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import RobertaModel, RobertaConfig
 from transformers import RobertaForSequenceClassification
 from transformers import AdamW, get_linear_schedule_with_warmup
-from define_fake_propaganda_articles.scr.model import PRE_TRAINED_MODEL_NAME
+from scr.model import PRE_TRAINED_MODEL_NAME
 
 ########################
 ### PARSE INPUT ARGS ###
